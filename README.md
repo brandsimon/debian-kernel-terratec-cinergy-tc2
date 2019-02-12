@@ -27,4 +27,4 @@ Than you can run the build script.::
 
 If no error occured, you can install the kernel.::
 
-    # dpkg -S /var/cache/pbuilder/result/
+    # dpkg -i /var/cache/pbuilder/result/
