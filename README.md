@@ -1,0 +1,30 @@
+# Terratec-Cinergy-TC2 Linux kernel
+
+This is a build script to build the debian kernel with support for the Terratec-Cinergy-TC2 DVB-USB-Stick.
+It is only tested under Debian Buster.
+
+<aside class="warning">
+This is only for testing purposes.
+Please review the patch and script before you build and use a kernel.
+
+Any use of these scripts and patches is at your own risk.
+</aside>
+
+## Preparation
+
+Pbuilder needs to be root to build packages.
+You need to create a pbuilder base.tgz.::
+
+    # pbuilder create --distribution buster --mirror http://deb.debian.org/debian
+
+## Build
+
+Than you can run the build script.::
+
+    # ./build.sh
+
+## Installation
+
+If no error occured, you can install the kernel.::
+
+    # dpkg -S /var/cache/pbuilder/result/
