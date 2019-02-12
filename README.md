@@ -25,6 +25,7 @@ Than you can run the build script.::
 
 ## Installation
 
-If no error occured, you can install the kernel.::
+If no error occured, you can install the kernel of your choice.::
 
-    # dpkg -i /var/cache/pbuilder/result/
+    $ ls /var/cache/pbuilder/result/linux-image-*-amd64_*_amd64.deb
+    # dpkg -i /var/cache/pbuilder/result/linux-image-...
