@@ -1,0 +1,362 @@
+Index: linux-4.19.16/drivers/media/tuners/si2157.c
+===================================================================
+--- linux-4.19.16.orig/drivers/media/tuners/si2157.c
++++ linux-4.19.16/drivers/media/tuners/si2157.c
+@@ -1,5 +1,5 @@
+ /*
+- * Silicon Labs Si2146/2147/2148/2157/2158 silicon tuner driver
++ * Silicon Labs Si2141/2146/2147/2148/2151/2157/2158 silicon tuner driver
+  *
+  * Copyright (C) 2014 Antti Palosaari <crope@iki.fi>
+  *
+@@ -75,6 +75,7 @@ err_mutex_unlock:
+ 	return ret;
+ }
+ 
++#define MAX_RESET_ATTEMPTS 10
+ static int si2157_init(struct dvb_frontend *fe)
+ {
+ 	struct i2c_client *client = fe->tuner_priv;
+@@ -84,7 +85,7 @@ static int si2157_init(struct dvb_fronte
+ 	struct si2157_cmd cmd;
+ 	const struct firmware *fw;
+ 	const char *fw_name;
+-	unsigned int uitmp, chip_id;
++	unsigned int uitmp, i;
+ 
+ 	dev_dbg(&client->dev, "\n");
+ 
+@@ -102,62 +103,83 @@ static int si2157_init(struct dvb_fronte
+ 	if (uitmp == dev->if_frequency / 1000)
+ 		goto warm;
+ 
+-	/* power up */
+-	if (dev->chiptype == SI2157_CHIPTYPE_SI2146) {
+-		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
+-		cmd.wlen = 9;
+-	} else if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
+-		memcpy(cmd.args, "\xc0\x00\x0d\x0e\x00\x01\x01\x01\x01\x03", 10);
+-		cmd.wlen = 10;
+-	} else {
+-		memcpy(cmd.args, "\xc0\x00\x0c\x00\x00\x01\x01\x01\x01\x01\x01\x02\x00\x00\x01", 15);
+-		cmd.wlen = 15;
+-	}
+-	cmd.rlen = 1;
+-	ret = si2157_cmd_execute(client, &cmd);
+-	if (ret)
+-		goto err;
++	if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
++		for (i = 0; i < MAX_RESET_ATTEMPTS; i++)  {
++			/* reset */
++			memcpy(cmd.args, "\xc0\x05\x00\x00", 4);
++			cmd.wlen = 4;
++		cmd.rlen = 1;
++		ret = si2157_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
+ 
+-	/* Si2141 needs a second command before it answers the revision query */
+-	if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
+-		memcpy(cmd.args, "\xc0\x08\x01\x02\x00\x00\x01", 7);
+-		cmd.wlen = 7;
+-		ret = si2157_cmd_execute(client, &cmd);
+-		if (ret)
+-			goto err;
++			memcpy(cmd.args, "\xc0\x00\x0d\x0e\x00\x01\x01\x01\x01\x03", 10);
++			cmd.wlen = 10;
++			cmd.rlen = 1;
++			ret = si2157_cmd_execute(client, &cmd);
++			if (ret)
++				goto err;
++			if (cmd.args[0] != 0xfe)
++				break;
++		}
++		if (i >= MAX_RESET_ATTEMPTS)
++			goto err;
+ 	}
+ 
+-	/* query chip revision */
+-	memcpy(cmd.args, "\x02", 1);
+-	cmd.wlen = 1;
+-	cmd.rlen = 13;
++	/* power up */
++	switch (dev->chiptype) {
++	case SI2157_CHIPTYPE_SI2146:
++		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
++		cmd.wlen = 9;
++		break;
++	case SI2157_CHIPTYPE_SI2141:
++		memcpy(cmd.args, "\xc0\x08\x01\x02\x00\x08\x01", 7);
++		cmd.wlen = 7;
++		break;
++	default:
++		memcpy(cmd.args, "\xc0\x00\x0c\x00\x00\x01\x01\x01\x01\x01\x01\x02\x00\x00\x01", 15);
++		cmd.wlen = 15;
++	}
++
++	cmd.rlen = 1;
+ 	ret = si2157_cmd_execute(client, &cmd);
+ 	if (ret)
+ 		goto err;
+ 
+-	chip_id = cmd.args[1] << 24 | cmd.args[2] << 16 | cmd.args[3] << 8 |
+-			cmd.args[4] << 0;
+-
++	/* query chip revision */
++//      memcpy(cmd.args, "\x02", 1);
++//      cmd.wlen = 1;
++//      cmd.rlen = 13;
++//      ret = si2157_cmd_execute(client, &cmd);
++//      if (ret)
++//	      goto err;
++//
++//      chip_id = cmd.args[1] << 24 | cmd.args[2] << 16 | cmd.args[3] << 8 |
++//		      cmd.args[4] << 0;
++//
+ 	#define SI2158_A20 ('A' << 24 | 58 << 16 | '2' << 8 | '0' << 0)
+ 	#define SI2148_A20 ('A' << 24 | 48 << 16 | '2' << 8 | '0' << 0)
+ 	#define SI2157_A30 ('A' << 24 | 57 << 16 | '3' << 8 | '0' << 0)
+ 	#define SI2147_A30 ('A' << 24 | 47 << 16 | '3' << 8 | '0' << 0)
+ 	#define SI2146_A10 ('A' << 24 | 46 << 16 | '1' << 8 | '0' << 0)
+ 	#define SI2141_A10 ('A' << 24 | 41 << 16 | '1' << 8 | '0' << 0)
+-
+-	switch (chip_id) {
++	#define SI2151_A10 ('A' << 24 | 51 << 16 | '1' << 8 | '0' << 0)
++//
++//      switch (chip_id{
++	switch (dev->chip_id) {
+ 	case SI2158_A20:
+ 	case SI2148_A20:
+ 		fw_name = SI2158_A20_FIRMWARE;
+ 		break;
+-	case SI2141_A10:
+-		fw_name = SI2141_A10_FIRMWARE;
+-		break;
+ 	case SI2157_A30:
+ 	case SI2147_A30:
+ 	case SI2146_A10:
+ 		fw_name = NULL;
+ 		break;
++	case SI2141_A10:
++	case SI2151_A10:
++		fw_name = SI2141_A10_FIRMWARE;
++		break;
+ 	default:
+ 		dev_err(&client->dev, "unknown chip version Si21%d-%c%c%c\n",
+ 				cmd.args[2], cmd.args[1],
+@@ -166,9 +188,6 @@ static int si2157_init(struct dvb_fronte
+ 		goto err;
+ 	}
+ 
+-	dev_info(&client->dev, "found a 'Silicon Labs Si21%d-%c%c%c'\n",
+-			cmd.args[2], cmd.args[1], cmd.args[3], cmd.args[4]);
+-
+ 	if (fw_name == NULL)
+ 		goto skip_fw_download;
+ 
+@@ -228,8 +247,25 @@ skip_fw_download:
+ 	if (ret)
+ 		goto err;
+ 
+-	dev_info(&client->dev, "firmware version: %c.%c.%d\n",
+-			cmd.args[6], cmd.args[7], cmd.args[8]);
++	//dev_info(&client->dev, "firmware version: %c.%c.%d\n",
++	//	      cmd.args[6], cmd.args[7], cmd.args[8]);
++
++	if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
++		/* set clock */
++		memcpy(cmd.args, "\xc0\x00\x0d", 3);
++		cmd.wlen = 3;
++		cmd.rlen = 1;
++		ret = si2157_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
++		/* setup PIN */
++		memcpy(cmd.args, "\x12\x80\x80\x85\x00\x81\x00", 7);
++		cmd.wlen = 7;
++		cmd.rlen = 7;
++		ret = si2157_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
++	}
+ warm:
+ 	/* init statistics in order signal app which are supported */
+ 	c->strength.len = 1;
+@@ -387,9 +423,9 @@ static int si2157_get_if_frequency(struc
+ 
+ static const struct dvb_tuner_ops si2157_ops = {
+ 	.info = {
+-		.name             = "Silicon Labs Si2141/Si2146/2147/2148/2157/2158",
+-		.frequency_min_hz =  42 * MHz,
+-		.frequency_max_hz = 870 * MHz,
++		.name           = "Silicon Labs Si2146/2147/2148/2157/2158",
++		.frequency_min_hz  = 42000000,
++		.frequency_max_hz  = 870000000,
+ 	},
+ 
+ 	.init = si2157_init,
+@@ -460,6 +496,36 @@ static int si2157_probe(struct i2c_clien
+ 
+ 	memcpy(&fe->ops.tuner_ops, &si2157_ops, sizeof(struct dvb_tuner_ops));
+ 	fe->tuner_priv = client;
++	/* power up */
++	if (dev->chiptype == SI2157_CHIPTYPE_SI2146) {
++		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
++		cmd.wlen = 9;
++	} else {
++		memcpy(cmd.args,
++		"\xc0\x00\x0c\x00\x00\x01\x01\x01\x01\x01\x01\x02\x00\x00\x01",
++		15);
++		cmd.wlen = 15;
++	}
++	cmd.rlen = 1;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err;
++	/* query chip revision */
++	/* hack: do it here because after the si2168 gets 0101, commands will
++	 * still be executed here but no result
++	 */
++	memcpy(cmd.args, "\x02", 1);
++	cmd.wlen = 1;
++	cmd.rlen = 13;
++	ret = si2157_cmd_execute(client, &cmd);
++	if (ret)
++		goto err_kfree;
++	dev->chip_id = cmd.args[1] << 24 |
++			cmd.args[2] << 16 |
++			cmd.args[3] << 8 |
++			cmd.args[4] << 0;
++	dev_info(&client->dev, "found a 'Silicon Labs Si21%d-%c%c%c'\n",
++			cmd.args[2], cmd.args[1], cmd.args[3], cmd.args[4]);
+ 
+ #ifdef CONFIG_MEDIA_CONTROLLER
+ 	if (cfg->mdev) {
+@@ -487,8 +553,8 @@ static int si2157_probe(struct i2c_clien
+ #endif
+ 
+ 	dev_info(&client->dev, "Silicon Labs %s successfully attached\n",
+-			dev->chiptype == SI2157_CHIPTYPE_SI2141 ?  "Si2141" :
+-			dev->chiptype == SI2157_CHIPTYPE_SI2146 ?
++			dev->chiptype == SI2157_CHIPTYPE_SI2141 ?
++			"Si2141/2151" : dev->chiptype == SI2157_CHIPTYPE_SI2146 ?
+ 			"Si2146" : "Si2147/2148/2157/2158");
+ 
+ 	return 0;
+@@ -526,6 +592,7 @@ static const struct i2c_device_id si2157
+ 	{"si2157", SI2157_CHIPTYPE_SI2157},
+ 	{"si2146", SI2157_CHIPTYPE_SI2146},
+ 	{"si2141", SI2157_CHIPTYPE_SI2141},
++	{"si2151", SI2157_CHIPTYPE_SI2141},
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(i2c, si2157_id_table);
+@@ -542,7 +609,7 @@ static struct i2c_driver si2157_driver =
+ 
+ module_i2c_driver(si2157_driver);
+ 
+-MODULE_DESCRIPTION("Silicon Labs Si2141/Si2146/2147/2148/2157/2158 silicon tuner driver");
++MODULE_DESCRIPTION("Silicon Labs Si2141/2146/2147/2148/2151/2157/2158 silicon tuner driver");
+ MODULE_AUTHOR("Antti Palosaari <crope@iki.fi>");
+ MODULE_LICENSE("GPL");
+ MODULE_FIRMWARE(SI2158_A20_FIRMWARE);
+Index: linux-4.19.16/drivers/media/tuners/si2157_priv.h
+===================================================================
+--- linux-4.19.16.orig/drivers/media/tuners/si2157_priv.h
++++ linux-4.19.16/drivers/media/tuners/si2157_priv.h
+@@ -30,6 +36,7 @@ struct si2157_dev {
+ 	u8 chiptype;
+ 	u8 if_port;
+ 	u32 if_frequency;
++	u32 chip_id;
+ 	struct delayed_work stat_work;
+ 
+ #if defined(CONFIG_MEDIA_CONTROLLER)
+@@ -44,6 +51,12 @@ struct si2157_dev {
+ #define SI2157_CHIPTYPE_SI2146 1
+ #define SI2157_CHIPTYPE_SI2141 2
+ 
++#define SI2158_A20 ('A' << 24 | 58 << 16 | '2' << 8 | '0' << 0)
++#define SI2148_A20 ('A' << 24 | 48 << 16 | '2' << 8 | '0' << 0)
++#define SI2157_A30 ('A' << 24 | 57 << 16 | '3' << 8 | '0' << 0)
++#define SI2147_A30 ('A' << 24 | 47 << 16 | '3' << 8 | '0' << 0)
++#define SI2146_A10 ('A' << 24 | 46 << 16 | '1' << 8 | '0' << 0)
++
+ /* firmware command struct */
+ #define SI2157_ARGLEN      30
+ struct si2157_cmd {
+Index: linux-4.19.16/drivers/media/usb/dvb-usb-v2/af9035.c
+===================================================================
+--- linux-4.19.16.orig/drivers/media/usb/dvb-usb-v2/af9035.c
++++ linux-4.19.16/drivers/media/usb/dvb-usb-v2/af9035.c
+@@ -1216,8 +1216,49 @@ static int it930x_frontend_attach(struct
+ 	struct si2168_config si2168_config;
+ 	struct i2c_adapter *adapter;
+ 
+-	dev_dbg(&intf->dev, "adap->id=%d\n", adap->id);
++	dev_dbg(&intf->dev, "%s  adap->id=%d\n", __func__, adap->id);
++
++	/* I2C master bus 2 clock speed 300k */
++	ret = af9035_wr_reg(d, 0x00f6a7, 0x07);
++	if (ret < 0)
++		goto err;
++
++	/* I2C master bus 1,3 clock speed 300k */
++	ret = af9035_wr_reg(d, 0x00f103, 0x07);
++	if (ret < 0)
++		goto err;
++
++	/* set gpio11 low */
++	ret = af9035_wr_reg_mask(d, 0xd8d4, 0x01, 0x01);
++	if (ret < 0)
++		goto err;
++
++	ret = af9035_wr_reg_mask(d, 0xd8d5, 0x01, 0x01);
++	if (ret < 0)
++		goto err;
++
++	ret = af9035_wr_reg_mask(d, 0xd8d3, 0x01, 0x01);
++	if (ret < 0)
++		goto err;
+ 
++	/* Tuner enable using gpiot2_en, gpiot2_on and gpiot2_o (reset) */
++	ret = af9035_wr_reg_mask(d, 0xd8b8, 0x01, 0x01);
++	if (ret < 0)
++		goto err;
++
++	ret = af9035_wr_reg_mask(d, 0xd8b9, 0x01, 0x01);
++	if (ret < 0)
++		goto err;
++
++	ret = af9035_wr_reg_mask(d, 0xd8b7, 0x00, 0x01);
++	if (ret < 0)
++		goto err;
++
++	msleep(200);
++
++	ret = af9035_wr_reg_mask(d, 0xd8b7, 0x01, 0x01);
++	if (ret < 0)
++		goto err;
+ 	memset(&si2168_config, 0, sizeof(si2168_config));
+ 	si2168_config.i2c_adapter = &adapter;
+ 	si2168_config.fe = &adap->fe[0];
+@@ -2110,8 +2151,6 @@ static const struct usb_device_id af9035
+ 	{ DVB_USB_DEVICE(USB_VID_KWORLD_2, USB_PID_CTVDIGDUAL_V2,
+ 		&af9035_props, "Digital Dual TV Receiver CTVDIGDUAL_V2",
+ 							RC_MAP_IT913X_V1) },
+-	{ DVB_USB_DEVICE(USB_VID_TERRATEC, USB_PID_TERRATEC_T1,
+-		&af9035_props, "TerraTec T1", RC_MAP_IT913X_V1) },
+ 	/* XXX: that same ID [0ccd:0099] is used by af9015 driver too */
+ 	{ DVB_USB_DEVICE(USB_VID_TERRATEC, 0x0099,
+ 		&af9035_props, "TerraTec Cinergy T Stick Dual RC (rev. 2)",
+@@ -2128,6 +2167,10 @@ static const struct usb_device_id af9035
+ 	/* IT930x devices */
+ 	{ DVB_USB_DEVICE(USB_VID_ITETECH, USB_PID_ITETECH_IT9303,
+ 		&it930x_props, "ITE 9303 Generic", NULL) },
++	{ DVB_USB_DEVICE(USB_VID_DEXATEK, 0x0100,
++		&it930x_props, "Logilink VG0022A", NULL) },
++	{ DVB_USB_DEVICE(USB_VID_TERRATEC, 0x10b2,
++	 	&it930x_props, "TerraTec Cinergy TC2 Stick", NULL) },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(usb, af9035_id_table);
