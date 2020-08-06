@@ -21,8 +21,8 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  	struct si2157_cmd cmd;
  	const struct firmware *fw;
  	const char *fw_name;
--	unsigned int uitmp, chip_id;
-+	unsigned int uitmp, i;
+-	unsigned int chip_id, xtal_trim;
++	unsigned int xtal_trim, i;
  
  	dev_dbg(&client->dev, "\n");
  
