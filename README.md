@@ -4,7 +4,7 @@ This is a build script to build the debian kernel with support for the Terratec-
 It is only tested under Debian Buster.
 
 <aside class="warning">
-This is only for testing purposes.
+This is only for testing purposes. The patch contains a lot of hacky workarounds.
 Please review the patch and script before you build and use a kernel.
 
 Any use of these scripts and patches is at your own risk.
