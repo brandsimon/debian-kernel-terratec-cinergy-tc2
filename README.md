@@ -15,7 +15,7 @@ Any use of these scripts and patches is at your own risk.
 Pbuilder needs to be root to build packages.
 You need to create a pbuilder base.tgz.::
 
-    # pbuilder create --distribution buster --mirror http://deb.debian.org/debian
+    # pbuilder create --distribution buster --mirror https://deb.debian.org/debian
 
 ## Build
 
