@@ -26,7 +26,7 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  
  	dev_dbg(&client->dev, "\n");
  
-@@ -102,62 +103,83 @@ static int si2157_init(struct dvb_fronte
+@@ -102,62 +103,71 @@ static int si2157_init(struct dvb_fronte
  	if (uitmp == dev->if_frequency / 1000)
  		goto warm;
  
@@ -103,16 +103,6 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
 -			cmd.args[4] << 0;
 -
 +	/* query chip revision */
-+//      memcpy(cmd.args, "\x02", 1);
-+//      cmd.wlen = 1;
-+//      cmd.rlen = 13;
-+//      ret = si2157_cmd_execute(client, &cmd);
-+//      if (ret)
-+//	      goto err;
-+//
-+//      chip_id = cmd.args[1] << 24 | cmd.args[2] << 16 | cmd.args[3] << 8 |
-+//		      cmd.args[4] << 0;
-+//
  	#define SI2158_A20 ('A' << 24 | 58 << 16 | '2' << 8 | '0' << 0)
  	#define SI2148_A20 ('A' << 24 | 48 << 16 | '2' << 8 | '0' << 0)
  	#define SI2157_A30 ('A' << 24 | 57 << 16 | '3' << 8 | '0' << 0)
@@ -122,8 +112,6 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
 -
 -	switch (chip_id) {
 +	#define SI2151_A10 ('A' << 24 | 51 << 16 | '1' << 8 | '0' << 0)
-+//
-+//      switch (chip_id{
 +	switch (dev->chip_id) {
  	case SI2158_A20:
  	case SI2148_A20:
@@ -144,7 +132,7 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  	default:
  		dev_err(&client->dev, "unknown chip version Si21%d-%c%c%c\n",
  				cmd.args[2], cmd.args[1],
-@@ -166,9 +188,6 @@ static int si2157_init(struct dvb_fronte
+@@ -166,9 +176,6 @@ static int si2157_init(struct dvb_fronte
  		goto err;
  	}
  
@@ -154,15 +142,12 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  	if (fw_name == NULL)
  		goto skip_fw_download;
  
-@@ -228,8 +247,25 @@ skip_fw_download:
+@@ -228,8 +235,22 @@ skip_fw_download:
  	if (ret)
  		goto err;
  
 -	dev_info(&client->dev, "firmware version: %c.%c.%d\n",
 -			cmd.args[6], cmd.args[7], cmd.args[8]);
-+	//dev_info(&client->dev, "firmware version: %c.%c.%d\n",
-+	//	      cmd.args[6], cmd.args[7], cmd.args[8]);
-+
 +	if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
 +		/* set clock */
 +		memcpy(cmd.args, "\xc0\x00\x0d", 3);
@@ -182,7 +167,7 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  warm:
  	/* init statistics in order signal app which are supported */
  	c->strength.len = 1;
-@@ -387,9 +423,9 @@ static int si2157_get_if_frequency(struc
+@@ -387,9 +408,9 @@ static int si2157_get_if_frequency(struc
  
  static const struct dvb_tuner_ops si2157_ops = {
  	.info = {
@@ -195,7 +180,7 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  	},
  
  	.init = si2157_init,
-@@ -460,6 +496,36 @@ static int si2157_probe(struct i2c_clien
+@@ -460,6 +481,36 @@ static int si2157_probe(struct i2c_clien
  
  	memcpy(&fe->ops.tuner_ops, &si2157_ops, sizeof(struct dvb_tuner_ops));
  	fe->tuner_priv = client;
@@ -232,7 +217,7 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  
  #ifdef CONFIG_MEDIA_CONTROLLER
  	if (cfg->mdev) {
-@@ -487,8 +553,8 @@ static int si2157_probe(struct i2c_clien
+@@ -487,8 +538,8 @@ static int si2157_probe(struct i2c_clien
  #endif
  
  	dev_info(&client->dev, "Silicon Labs %s successfully attached\n",
@@ -243,7 +228,7 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  			"Si2146" : "Si2147/2148/2157/2158");
  
  	return 0;
-@@ -526,6 +592,7 @@ static const struct i2c_device_id si2157
+@@ -526,6 +577,7 @@ static const struct i2c_device_id si2157
  	{"si2157", SI2157_CHIPTYPE_SI2157},
  	{"si2146", SI2157_CHIPTYPE_SI2146},
  	{"si2141", SI2157_CHIPTYPE_SI2141},
@@ -251,7 +236,7 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  	{}
  };
  MODULE_DEVICE_TABLE(i2c, si2157_id_table);
-@@ -542,7 +609,7 @@ static struct i2c_driver si2157_driver =
+@@ -542,7 +594,7 @@ static struct i2c_driver si2157_driver =
  
  module_i2c_driver(si2157_driver);
  
@@ -261,7 +246,6 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
  MODULE_LICENSE("GPL");
  MODULE_FIRMWARE(SI2158_A20_FIRMWARE);
 Index: linux-4.19.16/drivers/media/tuners/si2157_priv.h
-===================================================================
 --- linux-4.19.16.orig/drivers/media/tuners/si2157_priv.h
 +++ linux-4.19.16/drivers/media/tuners/si2157_priv.h
 @@ -30,6 +36,7 @@ struct si2157_dev {
@@ -286,7 +270,6 @@ Index: linux-4.19.16/drivers/media/tuners/si2157_priv.h
  #define SI2157_ARGLEN      30
  struct si2157_cmd {
 Index: linux-4.19.16/drivers/media/usb/dvb-usb-v2/af9035.c
-===================================================================
 --- linux-4.19.16.orig/drivers/media/usb/dvb-usb-v2/af9035.c
 +++ linux-4.19.16/drivers/media/usb/dvb-usb-v2/af9035.c
 @@ -1216,8 +1216,49 @@ static int it930x_frontend_attach(struct
