@@ -50,10 +50,10 @@ Index: linux-4.19.16/drivers/media/tuners/si2157.c
 +			/* reset */
 +			memcpy(cmd.args, "\xc0\x05\x00\x00", 4);
 +			cmd.wlen = 4;
-+		cmd.rlen = 1;
-+		ret = si2157_cmd_execute(client, &cmd);
-+		if (ret)
-+			goto err;
++			cmd.rlen = 1;
++			ret = si2157_cmd_execute(client, &cmd);
++			if (ret)
++				goto err;
  
 -	/* Si2141 needs a second command before it answers the revision query */
 -	if (dev->chiptype == SI2157_CHIPTYPE_SI2141) {
